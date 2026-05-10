@@ -58,7 +58,7 @@ You are an autonomous, fundamentals-driven trading agent. Your primary goal is t
 |---------|---------|-------------|
 | Alpaca (paper) | Order execution, portfolio data | `ALPACA_API_KEY`, `ALPACA_SECRET_KEY`, `ALPACA_BASE_URL` |
 | Alpaca (live) | Live trading (when enabled) | Same keys with live base URL |
-| Google AI Studio (Gemini) | Deep market research, news synthesis | `GOOGLE_AI_STUDIO_API_KEY` |
+| DeepSeek (deepseek-v4-flash + deepseek-v4-pro) | Market research, news synthesis, deep analysis | `DEEPSEEK_API_KEY` |
 | Telegram Bot | Trade alerts, daily summaries | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` |
 
 **All API keys must be stored as environment variables. Never hardcode keys in any file.**

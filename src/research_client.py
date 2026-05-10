@@ -1,6 +1,9 @@
 """
-Research client for Google AI Studio (Gemini) using raw HTTP requests.
-No SDK dependency. Uses the gemini-2.0-flash REST endpoint.
+Research client for DeepSeek API.
+Uses OpenAI-compatible chat completions endpoint.
+Models:
+  - deepseek-v4-flash  — fast, for routine research
+  - deepseek-v4-pro   — reasoning model, for deep analysis
 """
 
 import logging
@@ -13,35 +16,63 @@ from .config import ResearchConfig
 
 logger = logging.getLogger(__name__)
 
-MODEL = "gemini-2.0-flash"
-ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+BASE_URL = "https://api.deepseek.com"
 
 
 class ResearchClient:
     def __init__(self, config: ResearchConfig):
-        self.api_key = config.google_ai_studio_api_key
-        self.url = ENDPOINT.format(model=MODEL)
+        self.api_key = config.deepseek_api_key
+        self.model = config.deepseek_model
+        self.reasoning_model = config.deepseek_reasoning_model
+        self.url = f"{BASE_URL}/chat/completions"
+        self.reasoning_url = f"{BASE_URL}/chat/completions"
 
-    def _query(self, prompt: str, system: str = "") -> str:
-        full = f"{system}\n\n{prompt}" if system else prompt
-        body = {"contents": [{"parts": [{"text": full}]}]}
-        params = {"key": self.api_key}
+    def _query(
+        self,
+        prompt: str,
+        system: str = "",
+        model: Optional[str] = None,
+        reasoning: bool = False,
+    ) -> str:
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        body: dict = {
+            "model": model or (self.reasoning_model if reasoning else self.model),
+            "messages": messages,
+            "stream": False,
+        }
+        if reasoning:
+            body["thinking"] = {"type": "enabled", "reasoning_effort": "high"}
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+
         for attempt in range(2):
             try:
-                resp = requests.post(self.url, params=params, json=body, timeout=30)
+                resp = requests.post(self.url, json=body, headers=headers, timeout=60)
                 if resp.status_code == 200:
                     data = resp.json()
-                    candidates = data.get("candidates", [])
-                    if candidates:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        if parts:
-                            return parts[0].get("text", "")
-                    return "[empty response from Gemini]"
-                logger.warning("Gemini error (attempt %d): %s %s", attempt + 1, resp.status_code, resp.text[:200])
+                    choices = data.get("choices", [])
+                    if choices:
+                        return choices[0]["message"]["content"]
+                    return "[empty response from DeepSeek]"
+                logger.warning(
+                    "DeepSeek error (attempt %d): %s %s",
+                    attempt + 1,
+                    resp.status_code,
+                    resp.text[:200],
+                )
             except requests.RequestException as e:
-                logger.warning("Gemini request failed (attempt %d): %s", attempt + 1, e)
+                logger.warning("DeepSeek request failed (attempt %d): %s", attempt + 1, e)
             time.sleep(2)
-        return "[Gemini API unreachable]"
+        return "[DeepSeek API unreachable]"
+
+    # ── Standard research calls (fast model) ────────────────────────────────
 
     def get_macro_pulse(self) -> str:
         return self._query(
@@ -61,25 +92,6 @@ class ResearchClient:
             "(3) impact on the investment thesis. Focus on material events: earnings, guidance, M&A, regulatory, "
             "management changes, analyst rating changes with price targets.",
             system="You are a buy-side equity research analyst. Be analytical and concise.",
-        )
-
-    def deep_fundamental_analysis(self, ticker: str, company_name: str = "", context: str = "") -> str:
-        return self._query(
-            f"Conduct a deep fundamental analysis of {ticker} ({company_name}). "
-            f"Additional context: {context}\n\n"
-            "Analyze: revenue quality and growth drivers, margin trajectory and FCF, "
-            "balance sheet, competitive moat, valuation vs peers (P/E, EV/EBITDA), key risks. "
-            "Write a structured thesis with bull case, bear case, intrinsic value range. "
-            "Conclude with: Buy / Watch / Pass.",
-            system="You are a fundamental equity analyst. Be rigorous and data-driven.",
-        )
-
-    def get_earnings_calendar(self, days_ahead: int = 1) -> str:
-        return self._query(
-            f"List S&P 500 and NASDAQ-100 companies reporting earnings in the next {days_ahead} trading day(s). "
-            "Include: ticker, company name, BMO/AMC, consensus EPS, consensus revenue. "
-            "Flag high-impact reports.",
-            system="You are a financial data aggregator. Be precise and complete.",
         )
 
     def get_sector_performance(self) -> str:
@@ -104,4 +116,27 @@ class ResearchClient:
             f"(3) the single most important lesson, (4) one concrete improvement for next week.\n\n"
             f"Trade log:\n{trade_log_excerpt}\n\nLearnings:\n{learnings_excerpt}",
             system="You are a systematic trading coach.",
+        )
+
+    # ── Deep analysis (reasoning model) ───────────────────────────────────
+
+    def deep_fundamental_analysis(self, ticker: str, company_name: str = "", context: str = "") -> str:
+        return self._query(
+            f"Conduct a deep fundamental analysis of {ticker} ({company_name}). "
+            f"Additional context: {context}\n\n"
+            "Analyze: revenue quality and growth drivers, margin trajectory and FCF, "
+            "balance sheet, competitive moat, valuation vs peers (P/E, EV/EBITDA), key risks. "
+            "Write a structured thesis with bull case, bear case, intrinsic value range. "
+            "Conclude with: Buy / Watch / Pass.",
+            system="You are a fundamental equity analyst. Be rigorous and data-driven.",
+            reasoning=True,
+        )
+
+    def get_earnings_calendar(self, days_ahead: int = 1) -> str:
+        return self._query(
+            f"List S&P 500 and NASDAQ-100 companies reporting earnings in the next {days_ahead} trading day(s). "
+            "Include: ticker, company name, BMO/AMC, consensus EPS, consensus revenue. "
+            "Flag high-impact reports.",
+            system="You are a financial data aggregator. Be precise and complete.",
+            reasoning=True,
         )

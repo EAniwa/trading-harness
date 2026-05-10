@@ -79,5 +79,5 @@ python run_weekly_review.py
 ## APIs Required
 
 - **Alpaca** — brokerage (paper or live)
-- **Google AI Studio** — Gemini for research and news
+- **DeepSeek API** (deepseek-v4-flash + deepseek-v4-pro) — market research and news
 - **Telegram Bot** — alerts and summaries

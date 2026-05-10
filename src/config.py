@@ -23,7 +23,10 @@ class TelegramConfig:
 
 @dataclass
 class ResearchConfig:
-    google_ai_studio_api_key: str
+    google_ai_studio_api_key: str  # kept for backwards compat, unused
+    deepseek_api_key: str
+    deepseek_model: str = "deepseek-v4-flash"
+    deepseek_reasoning_model: str = "deepseek-v4-pro"
 
 
 @dataclass
@@ -57,7 +60,12 @@ def load_telegram_config() -> TelegramConfig:
 
 
 def load_research_config() -> ResearchConfig:
-    return ResearchConfig(google_ai_studio_api_key=os.environ["GOOGLE_AI_STUDIO_API_KEY"])
+    return ResearchConfig(
+        google_ai_studio_api_key=os.environ.get("GOOGLE_AI_STUDIO_API_KEY", ""),
+        deepseek_api_key=os.environ["DEEPSEEK_API_KEY"],
+        deepseek_model=os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash"),
+        deepseek_reasoning_model=os.environ.get("DEEPSEEK_REASONING_MODEL", "deepseek-v4-pro"),
+    )
 
 
 def load_risk_config() -> RiskConfig:
