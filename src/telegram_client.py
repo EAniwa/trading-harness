@@ -63,6 +63,6 @@ class TelegramClient:
     def send_guardrail_breach(self, rule: str, current_value: str, limit: str) -> bool:
         return self.send_urgent(
             f"*Guardrail breached:* {rule}\n"
-            f"Current: `{current_value}` | Limit: `{limit`}\n"
+            f"Current: `{current_value}` | Limit: `{limit}`\n"
             f"All new orders halted. Human review required."
         )
